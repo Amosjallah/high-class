@@ -1,7 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Monitor, Users, Star } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Monitor, Users, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Feature, Testimonial } from '../types';
+
+// Define the default slides for the hero section (Static fallback)
+const STATIC_HERO_SLIDES = [
+  {
+    id: 1,
+    // Using the provided Google Maps image with =s1600 for high resolution
+    image: "https://lh3.googleusercontent.com/p/AF1QipNh24rEABdB4hZ5XMckSGT37VKc0kdbIkpf-nRD=s1600",
+    alt: "High Class College Exterior View",
+    position: "object-center"
+  },
+  {
+    id: 2,
+    // New image for slide 2 (High Resolution)
+    image: "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSxV3P-wM_ZNO-KRcQ9rzyBMVUBIAeM2kywr0OysB9D-7kNRAGQ2sIXea-X_QnkhUHayRH94-pqI8Ua6SrXW4H5O24wpFWyuSShkCDNWDqSWQVCvZ5zFZV2K6xJPXQe4O3y51gBbxA=s1600",
+    alt: "Spacious Atrium and Corridors",
+    position: "object-center"
+  },
+  {
+    id: 3,
+    // New image for slide 3 (High Resolution)
+    image: "https://lh3.googleusercontent.com/gps-cs-s/AG0ilSwNuFx37ki0Za_wstgGpaGByb2hsfSqZqESLVPmeU0Deo8HzpJuvb0lKqrpTTSiEXeVd5-XhuBRpjPKkWoMb0-hXlnHLVxFNQsAH1cl-Rv0Uj43E0B9L9ZsYdpvnaz4ahW4FqWS5w=s1600",
+    alt: "School Courtyard and Basketball Court",
+    position: "object-center"
+  }
+];
 
 const FEATURES: Feature[] = [
   {
@@ -48,57 +73,137 @@ const TESTIMONIALS: Testimonial[] = [
 ];
 
 const Home: React.FC = () => {
-  // State to hold the hero image source
-  // Default to the static file, but can be overridden by gallery content
-  const [heroImage, setHeroImage] = useState("high_class_college_exterior.jpg");
+  const [slides, setSlides] = useState(STATIC_HERO_SLIDES);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Check local storage for gallery images on component mount
+  // Load images from LocalStorage (Gallery) on mount
   useEffect(() => {
     try {
-      const savedImages = localStorage.getItem('hcc_gallery_images');
-      if (savedImages) {
-        const parsedImages = JSON.parse(savedImages);
-        // If gallery has images, use the most recently added one (first in list)
-        if (parsedImages && parsedImages.length > 0) {
-          setHeroImage(parsedImages[0].url);
+      const saved = localStorage.getItem('hcc_gallery_images');
+      if (saved) {
+        const galleryImages = JSON.parse(saved);
+        if (galleryImages.length > 0) {
+          // Map gallery images to slider format
+          // We take up to 5 recent images from gallery
+          const gallerySlides = galleryImages.slice(0, 5).map((img: any, index: number) => ({
+            id: img.id,
+            image: img.url,
+            alt: img.title,
+            position: "object-center" // Default position for uploaded images
+          }));
+          
+          // If user has uploaded images, use them. 
+          // Otherwise, we stick to STATIC_HERO_SLIDES which now includes the Google image.
+          if (gallerySlides.length > 0) {
+             setSlides(gallerySlides);
+          }
         }
       }
     } catch (e) {
-      console.error("Failed to load hero image from gallery storage", e);
+      console.error("Failed to load gallery slides", e);
     }
   }, []);
 
+  // Auto-advance slides every 5 seconds
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    
+    const slideInterval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+
+    return () => clearInterval(slideInterval);
+  }, [slides.length]);
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
+
   return (
     <div className="flex flex-col">
-      {/* Hero Section */}
-      <section className="relative h-screen min-h-[600px] flex items-center justify-center text-white overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <img
-            src={heroImage}
-            onError={(e) => {
-              // Fallback to placeholder if the image (static or base64) fails to load
-              if (e.currentTarget.src !== "https://picsum.photos/seed/school_hero/1920/1080") {
-                e.currentTarget.src = "https://picsum.photos/seed/school_hero/1920/1080";
-              }
-            }}
-            alt="High Class College Campus"
-            className="w-full h-full object-cover object-top"
-          />
-          <div className="absolute inset-0 bg-school-blue/70 mix-blend-multiply"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-school-dark/90 via-transparent to-transparent"></div>
-        </div>
+      {/* Hero Section with Slider */}
+      <section className="relative h-screen min-h-[600px] flex items-center justify-center text-white overflow-hidden bg-school-dark">
+        
+        {/* Background Slides */}
+        {slides.map((slide, index) => (
+          <div
+            key={slide.id}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              index === currentSlide ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <img
+              src={slide.image}
+              onError={(e) => {
+                // Fallback if user hasn't saved the specific files yet and isn't using gallery
+                // Avoid infinite loop if fallback fails
+                if (e.currentTarget.src !== `https://picsum.photos/seed/school_${index}/1920/1080`) {
+                   e.currentTarget.src = `https://picsum.photos/seed/school_${index}/1920/1080`;
+                }
+              }}
+              alt={slide.alt}
+              className={`w-full h-full object-cover ${slide.position}`}
+            />
+            {/* Dark Overlay */}
+            <div className="absolute inset-0 bg-school-blue/60 mix-blend-multiply"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-school-dark/90 via-transparent to-transparent"></div>
+          </div>
+        ))}
 
+        {/* Slider Controls - Only show if multiple slides */}
+        {slides.length > 1 && (
+          <>
+            <button 
+              onClick={prevSlide}
+              className="absolute left-4 z-20 p-2 rounded-full bg-white/10 hover:bg-white/30 text-white transition-colors hidden md:block backdrop-blur-sm"
+              aria-label="Previous Slide"
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </button>
+            <button 
+              onClick={nextSlide}
+              className="absolute right-4 z-20 p-2 rounded-full bg-white/10 hover:bg-white/30 text-white transition-colors hidden md:block backdrop-blur-sm"
+              aria-label="Next Slide"
+            >
+              <ChevronRight className="h-8 w-8" />
+            </button>
+
+            {/* Slide Indicators */}
+            <div className="absolute bottom-8 z-20 flex space-x-3">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    index === currentSlide ? 'bg-school-gold w-8' : 'bg-white/50 hover:bg-white'
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Hero Content */}
         <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight animate-fade-in-up">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight animate-fade-in-up drop-shadow-lg">
             High Class College
             <span className="block text-school-gold text-2xl md:text-4xl mt-2 font-light">
               Building Great Minds for the Future
             </span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-gray-100 mb-10 max-w-2xl mx-auto drop-shadow-md animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             Empowering students through excellence, discipline, creativity, and modern education in the heart of Kasoa Iron City.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
             <Link
               to="/admissions"
               className="w-full sm:w-auto px-8 py-4 bg-school-gold text-school-dark font-bold rounded-full hover:bg-white hover:scale-105 transition-all duration-300 shadow-lg flex items-center justify-center"
